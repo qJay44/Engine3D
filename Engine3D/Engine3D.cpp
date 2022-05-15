@@ -1,4 +1,5 @@
 #include <vector>
+#include <iostream>
 #include "SFML/Window.hpp"
 #include "SFML/System.hpp"
 #include "SFML/Graphics.hpp"
@@ -13,6 +14,7 @@ struct mat4x4;
 void MultiplyMatrixVector(vec3d&, vec3d&, mat4x4&);
 void onUpdate(sf::RenderWindow&);
 void onCreate(const unsigned int, const unsigned int);
+void showLines();
 
 int main()
 {
@@ -27,6 +29,11 @@ int main()
         {
             if (event.type == sf::Event::Closed)
                 window.close();
+
+			// change color mode
+			if (event.type == sf::Event::KeyReleased && event.key.code == sf::Keyboard::Key::C)
+				showLines();
+
         }
 
         window.clear();
@@ -61,8 +68,16 @@ struct mat4x4
 
 mesh meshCube;
 mat4x4 matProj;
+vec3d vCamera;
+
+bool drawLines = false;
 
 float fTheta;
+
+void showLines()
+{
+	drawLines = !drawLines;
+}
 
 void MultiplyMatrixVector(vec3d& i, vec3d& o, mat4x4& m)
 {
@@ -90,6 +105,10 @@ void onCreate(const unsigned int w, const unsigned int h)
             // EAST
             { 1.0f, 0.0f, 0.0f,      1.0f, 1.0f, 0.0f,       1.0f, 1.0f, 1.0f },
             { 1.0f, 0.0f, 0.0f,      1.0f, 1.0f, 1.0f,       1.0f, 0.0f, 1.0f },
+
+			// NORTH                                                     
+			{ 1.0f, 0.0f, 1.0f,		 1.0f, 1.0f, 1.0f,		 0.0f, 1.0f, 1.0f },
+			{ 1.0f, 0.0f, 1.0f,		 0.0f, 1.0f, 1.0f,		 0.0f, 0.0f, 1.0f },
 
             // WEST
             { 0.0f, 0.0f, 1.0f,      0.0f, 1.0f, 1.0f,       0.0f, 1.0f, 0.0f },
@@ -122,8 +141,8 @@ void onCreate(const unsigned int w, const unsigned int h)
 
 void onUpdate(sf::RenderWindow& win)
 {
-	const unsigned int w = win.getSize().x;
-	const unsigned int h = win.getSize().y;
+	const unsigned static int w = win.getSize().x;
+	const unsigned static int h = win.getSize().y;
 
 	mat4x4 matRotZ, matRotX;
 	fTheta += 1.0f * 75.f / 1000.f / 100.f;
@@ -164,45 +183,105 @@ void onUpdate(sf::RenderWindow& win)
 		triTranslated.p[0].z = triRotatedZX.p[0].z + 3.0f;
 		triTranslated.p[1].z = triRotatedZX.p[1].z + 3.0f;
 		triTranslated.p[2].z = triRotatedZX.p[2].z + 3.0f;
+		
+		vec3d normal, line1, line2;
+		line1.x = triTranslated.p[1].x - triTranslated.p[0].x;
+		line1.y = triTranslated.p[1].y - triTranslated.p[0].y;
+		line1.z = triTranslated.p[1].z - triTranslated.p[0].z;
 
-		// Project triangles 3D -> 2D
-		MultiplyMatrixVector(triTranslated.p[0], triProjected.p[0], matProj);
-		MultiplyMatrixVector(triTranslated.p[1], triProjected.p[1], matProj);
-		MultiplyMatrixVector(triTranslated.p[2], triProjected.p[2], matProj);
+		line2.x = triTranslated.p[2].x - triTranslated.p[0].x;
+		line2.y = triTranslated.p[2].y - triTranslated.p[0].y;
+		line2.z = triTranslated.p[2].z - triTranslated.p[0].z;
 
-		// Scale into view
-		triProjected.p[0].x += 1.0f; triProjected.p[0].y += 1.0f;
-		triProjected.p[1].x += 1.0f; triProjected.p[1].y += 1.0f;
-		triProjected.p[2].x += 1.0f; triProjected.p[2].y += 1.0f;
+		normal.x = line1.y * line2.z - line1.z * line2.y;
+		normal.y = line1.z * line2.x - line1.x * line2.z;
+		normal.z = line1.x * line2.y - line1.y * line2.x;
 
-		triProjected.p[0].x *= 0.5f * (float) w;
-		triProjected.p[1].x *= 0.5f * (float) w;
-		triProjected.p[2].x *= 0.5f * (float) w;
+		float l = sqrtf(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+		normal.x /= l; normal.y /= l; normal.z /= l;
 
-		triProjected.p[0].y *= 0.5f * (float) h;
-		triProjected.p[1].y *= 0.5f * (float) h;
-		triProjected.p[2].y *= 0.5f * (float) h;
-
-		sf::Vertex line1[] =
+		if (normal.x * (triTranslated.p[0].x - vCamera.x) +
+			normal.y * (triTranslated.p[0].y - vCamera.y) +
+			normal.z * (triTranslated.p[0].z - vCamera.z) < 0.f)
 		{
-			sf::Vertex(sf::Vector2f(triProjected.p[0].x, triProjected.p[0].y)),
-			sf::Vertex(sf::Vector2f(triProjected.p[1].x, triProjected.p[1].y))
-		};
+			// Illumination
+			vec3d light_direction = { 0.f, 0.f, -1.f };
+			float l = sqrtf(light_direction.x * light_direction.x + light_direction.y * light_direction.y + light_direction.z * light_direction.z);
+			light_direction.x /= l; light_direction.y /= l; light_direction.z /= l;
 
-		sf::Vertex line2[] =
-		{
-			sf::Vertex(sf::Vector2f(triProjected.p[1].x, triProjected.p[1].y)),
-			sf::Vertex(sf::Vector2f(triProjected.p[2].x, triProjected.p[2].y))
-		};
+			float dp = normal.x * light_direction.x + normal.y * light_direction.y + normal.z * light_direction.z;
 
-		sf::Vertex line3[] =
-		{
-			sf::Vertex(sf::Vector2f(triProjected.p[2].x, triProjected.p[2].y)),
-			sf::Vertex(sf::Vector2f(triProjected.p[0].x, triProjected.p[0].y))
-		};
+			// Project triangles 3D -> 2D
+			MultiplyMatrixVector(triTranslated.p[0], triProjected.p[0], matProj);
+			MultiplyMatrixVector(triTranslated.p[1], triProjected.p[1], matProj);
+			MultiplyMatrixVector(triTranslated.p[2], triProjected.p[2], matProj);
 
-		win.draw(line1, 2, sf::Lines);
-		win.draw(line2, 2, sf::Lines);
-		win.draw(line3, 2, sf::Lines);
+			// Scale into view
+			triProjected.p[0].x += 1.0f; triProjected.p[0].y += 1.0f;
+			triProjected.p[1].x += 1.0f; triProjected.p[1].y += 1.0f;
+			triProjected.p[2].x += 1.0f; triProjected.p[2].y += 1.0f;
+
+			triProjected.p[0].x *= 0.5f * (float)w;
+			triProjected.p[1].x *= 0.5f * (float)w;
+			triProjected.p[2].x *= 0.5f * (float)w;
+
+			triProjected.p[0].y *= 0.5f * (float)h;
+			triProjected.p[1].y *= 0.5f * (float)h;
+			triProjected.p[2].y *= 0.5f * (float)h;
+
+			//=========================================================
+			// Draw triangles
+
+			sf::VertexArray triangle(sf::Triangles, 3);
+
+			triangle[0].position = sf::Vector2f(triProjected.p[0].x, triProjected.p[0].y);
+			triangle[1].position = sf::Vector2f(triProjected.p[1].x, triProjected.p[1].y);
+			triangle[2].position = sf::Vector2f(triProjected.p[2].x, triProjected.p[2].y);
+
+			triangle[0].color = sf::Color(255, 255, 255, dp * 255);
+			triangle[1].color = sf::Color(255, 255, 255, dp * 255);
+			triangle[2].color = sf::Color(255, 255, 255, dp * 255);
+
+			win.draw(triangle);
+			
+			if (drawLines)
+			{
+				//=========================================================
+				// Draw triangle lines
+
+				sf::Vertex triangle_line1[] =
+				{
+					sf::Vertex(sf::Vector2f(triProjected.p[0].x, triProjected.p[0].y)),
+					sf::Vertex(sf::Vector2f(triProjected.p[1].x, triProjected.p[1].y))
+				};
+
+				sf::Vertex triangle_line2[] =
+				{
+					sf::Vertex(sf::Vector2f(triProjected.p[1].x, triProjected.p[1].y)),
+					sf::Vertex(sf::Vector2f(triProjected.p[2].x, triProjected.p[2].y))
+				};
+
+				sf::Vertex triangle_line3[] =
+				{
+					sf::Vertex(sf::Vector2f(triProjected.p[2].x, triProjected.p[2].y)),
+					sf::Vertex(sf::Vector2f(triProjected.p[0].x, triProjected.p[0].y))
+				};
+
+				triangle_line1[0].color = sf::Color::Black;
+				triangle_line1[1].color = sf::Color::Black;
+
+				triangle_line2[0].color = sf::Color::Black;
+				triangle_line2[1].color = sf::Color::Black;
+
+				triangle_line3[0].color = sf::Color::Black;
+				triangle_line3[1].color = sf::Color::Black;
+
+				win.draw(triangle_line1, 2, sf::Lines);
+				win.draw(triangle_line2, 2, sf::Lines);
+				win.draw(triangle_line3, 2, sf::Lines);
+
+				//=========================================================
+			}
+		}
 	}
 }
