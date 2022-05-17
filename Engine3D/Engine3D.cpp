@@ -491,7 +491,7 @@ void moveCamera(int dir, float elapsedTime)
 
 void onCreate(const unsigned int w, const unsigned int h)
 {
-	meshCube.LoadFromObjectFile("spaceshit.obj");
+	meshCube.LoadFromObjectFile("mountains.obj");
 
 	// Projection Matrix
 	matProj = Matrix_MakeProjection(90.f, (float)h / (float)w, 0.1f, 1000.f);
