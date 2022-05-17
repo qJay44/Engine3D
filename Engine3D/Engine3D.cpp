@@ -18,7 +18,7 @@ void moveCamera(int, float);
 
 int main()
 {
-    sf::RenderWindow window(sf::VideoMode(800, 600), "3D Engine", sf::Style::Close);
+    sf::RenderWindow window(sf::VideoMode(1280, 720), "3D Engine", sf::Style::Close);
 	sf::Clock clock;
 
 	onCreate(window.getSize().x, window.getSize().y);
@@ -68,7 +68,23 @@ struct vec3d
 struct triangle
 {
     vec3d p[3];
-	int col = 0;
+	float col = 0;
+	float r, g, b;
+
+	void setColor(float r, float g, float b)
+	{
+		this->r = r;
+		this->g = g;
+		this->b = b;
+	}
+
+	void setColor(float dp)
+	{
+		this->r = dp;
+		this->g = dp;
+		this->b = dp;
+		this->col = dp;
+	}
 };
 
 struct mesh
@@ -377,7 +393,7 @@ int Triangle_ClipAgainstPlane(vec3d plane_p, vec3d plane_n, triangle& in_tri, tr
 		// the triangle simply becomes a smaller triangle
 
 		// Copy appearance info to new triangle
-		out_tri1.col = colorClipping ? -1 : in_tri.col;
+		colorClipping ? out_tri1.setColor(in_tri.col, 0.f, 0.f) : out_tri1.setColor(in_tri.col);
 
 		// The inside point is valid, so keep that...
 		out_tri1.p[0] = *inside_points[0];
@@ -397,8 +413,8 @@ int Triangle_ClipAgainstPlane(vec3d plane_p, vec3d plane_n, triangle& in_tri, tr
 		// represent a quad with two new triangles
 
 		// copy appearance info to new triangles
-		out_tri1.col = colorClipping ? -2: in_tri.col;
-		out_tri2.col = colorClipping ? -3: in_tri.col;
+		colorClipping ? out_tri1.setColor(0.f, in_tri.col, 0.f) : out_tri1.setColor(in_tri.col);
+		colorClipping ? out_tri2.setColor(0.f, 0.f, in_tri.col) : out_tri2.setColor(in_tri.col);
 
 		// The first triangle consists of the two inside points and a new
 		// point determined by the location where one side of the triangle
@@ -461,19 +477,19 @@ void moveCamera(int dir, float elapsedTime)
 	switch (dir)
 	{
 	case 0:
-		vCamera.y += stepY;
-		break;
-
-	case 1:
 		vCamera.y -= stepY;
 		break;
 
+	case 1:
+		vCamera.y += stepY;
+		break;
+
 	case 2:
-		Yaw += stepX;
+		Yaw -= stepX;
 		break;
 
 	case 3:
-		Yaw -= stepX;
+		Yaw += stepX;
 		break;
 
 	case 4:
@@ -564,13 +580,13 @@ void onUpdate(sf::RenderWindow& win)
 
 			// How "aligned" are light direction and triangle surface noraml?
 			float dp = max(0.1f, Vector_DotProduct(light_direction, normal));
-			triTransformed.col = dp * 255;
+			triTransformed.setColor(dp * 255.f);
 
 			// Covert World Space -> View Space
 			triViewed.p[0] = Matrix_MultiplyVector(matView, triTransformed.p[0]);
 			triViewed.p[1] = Matrix_MultiplyVector(matView, triTransformed.p[1]);
 			triViewed.p[2] = Matrix_MultiplyVector(matView, triTransformed.p[2]);
-			triViewed.col = triTransformed.col;
+			triViewed.setColor(triTransformed.col);
 
 			// Clip Viewed Triangle against near plane, this could form two
 			// additional triangles
@@ -585,7 +601,7 @@ void onUpdate(sf::RenderWindow& win)
 				triProjected.p[0] = Matrix_MultiplyVector(matProj, clipped[n].p[0]);
 				triProjected.p[1] = Matrix_MultiplyVector(matProj, clipped[n].p[1]);
 				triProjected.p[2] = Matrix_MultiplyVector(matProj, clipped[n].p[2]);
-				triProjected.col = clipped[n].col;
+				triProjected.setColor(clipped[n].col);
 
 				// Scale into view
 				triProjected.p[0] = Vector_Div(triProjected.p[0], triProjected.p[0].w);
@@ -672,39 +688,9 @@ void onUpdate(sf::RenderWindow& win)
 			triangle[1].position = sf::Vector2f(t.p[1].x, t.p[1].y);
 			triangle[2].position = sf::Vector2f(t.p[2].x, t.p[2].y);
 
-			const short int c = t.col;
-			int r, g, b;
-
-			switch (c)
-			{
-			case -1:
-				r = 0;
-				g = 0;
-				b = 255;
-				break;
-
-			case -2:
-				r = 0;
-				g = 255;
-				b = 0;
-				break;
-
-			case -3:
-				r = 255;
-				g = 0;
-				b = 0;
-				break;
-
-			default:
-				r = c;
-				g = c;
-				b = c;
-				break;
-			}
-
 			for (size_t i = 0; i < 3; i++)
 			{
-				triangle[i].color = sf::Color(r, g, b, 255);
+				triangle[i].color = sf::Color(t.r, t.g, t.b);
 			}
 
 			win.draw(triangle);
