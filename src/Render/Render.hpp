@@ -2,8 +2,8 @@
 
 #include <cstdint>
 
-#include "object.hpp"
 #include "mat.hpp"
+#include "object.hpp"
 
 class Render {
   public:
@@ -20,13 +20,15 @@ class Render {
 
     mesh object;
     mat4x4 matProj;
+
     vec3 camera{};
-    vec3 lightDirection{0.f, 0.f, -1.f};
+    vec3 lookDir{};
+    float yaw;
 
     bool drawMesh = false;
 
   private:
-    void update();
+    void update(float dt);
     void draw();
 };
 
